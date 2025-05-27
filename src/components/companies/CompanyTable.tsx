@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Edit, Trash2, Plus, Download } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { apiService } from '@/lib/api';
 
 interface CompanyTableProps {
   companies: Company[];
@@ -36,12 +37,20 @@ export function CompanyTable({ companies, onEdit, onDelete, onAdd }: CompanyTabl
   const canCreateDelete = user?.role === 'Admin' || user?.role === 'Manager';
   const canExport = user?.role === 'Admin' || user?.role === 'Manager';
 
-  const handleExport = () => {
-    // Mock export functionality
-    toast({
-      title: "Export Started",
-      description: "Companies data is being exported to Excel...",
-    });
+  const handleExport = async () => {
+    try {
+      await apiService.downloadCompaniesExcel();
+      toast({
+        title: "Export Successful",
+        description: "Companies data has been exported to Excel.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export companies data.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

@@ -1,78 +1,76 @@
 
-import React, { useState } from 'react';
-import { PendingUpdate } from '@/types';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, X, Clock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-
-const mockPendingUpdates: PendingUpdate[] = [
-  {
-    id: '1',
-    companyId: '1',
-    originalData: {
-      companyName: 'TechCorp Inc.',
-      package: '₹12 LPA'
-    },
-    updatedData: {
-      companyName: 'TechCorp Inc.',
-      package: '₹14 LPA'
-    },
-    officerId: '3',
-    status: 'pending',
-    createdAt: '2024-01-20'
-  },
-  {
-    id: '2',
-    companyId: '2',
-    originalData: {
-      companyName: 'DataSoft Ltd.',
-      isContacted: false
-    },
-    updatedData: {
-      companyName: 'DataSoft Ltd.',
-      isContacted: true
-    },
-    officerId: '3',
-    status: 'pending',
-    createdAt: '2024-01-19'
-  }
-];
+import { apiService } from '@/lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export function PendingApprovals() {
-  const [pendingUpdates, setPendingUpdates] = useState<PendingUpdate[]>(mockPendingUpdates);
+  const queryClient = useQueryClient();
+  
+  const { data: pendingUpdates = [], isLoading } = useQuery({
+    queryKey: ['pending-updates'],
+    queryFn: apiService.getPendingUpdates,
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: apiService.approvePendingUpdate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-updates'] });
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      toast({
+        title: "Update Approved",
+        description: "The changes have been approved and applied.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: apiService.rejectPendingUpdate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-updates'] });
+      toast({
+        title: "Update Rejected",
+        description: "The changes have been rejected.",
+        variant: "destructive",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleApprove = (id: string) => {
-    setPendingUpdates(prev => 
-      prev.map(update => 
-        update.id === id 
-          ? { ...update, status: 'approved' as const, reviewedAt: new Date().toISOString() }
-          : update
-      )
-    );
-    toast({
-      title: "Update Approved",
-      description: "The changes have been approved and applied.",
-    });
+    approveMutation.mutate(id);
   };
 
   const handleReject = (id: string) => {
-    setPendingUpdates(prev => 
-      prev.map(update => 
-        update.id === id 
-          ? { ...update, status: 'rejected' as const, reviewedAt: new Date().toISOString() }
-          : update
-      )
-    );
-    toast({
-      title: "Update Rejected",
-      description: "The changes have been rejected.",
-      variant: "destructive",
-    });
+    rejectMutation.mutate(id);
   };
 
-  const pendingCount = pendingUpdates.filter(u => u.status === 'pending').length;
+  const pendingCount = pendingUpdates.filter((u: any) => u.status === 'pending').length;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -96,11 +94,13 @@ export function PendingApprovals() {
       </div>
 
       <div className="space-y-4">
-        {pendingUpdates.map((update) => (
+        {pendingUpdates.map((update: any) => (
           <Card key={update.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Company Update Request</CardTitle>
+                <CardTitle className="text-lg">
+                  {update.companyName} - Update Request
+                </CardTitle>
                 <Badge 
                   variant={
                     update.status === 'pending' ? 'default' :
@@ -114,7 +114,7 @@ export function PendingApprovals() {
             <CardContent>
               <div className="space-y-4">
                 <div className="text-sm text-gray-600">
-                  <p><strong>Submitted by:</strong> Mike Officer</p>
+                  <p><strong>Submitted by:</strong> {update.officerName}</p>
                   <p><strong>Date:</strong> {new Date(update.createdAt).toLocaleDateString()}</p>
                 </div>
 
@@ -147,17 +147,19 @@ export function PendingApprovals() {
                     <Button 
                       onClick={() => handleApprove(update.id)}
                       className="flex items-center"
+                      disabled={approveMutation.isPending}
                     >
                       <Check className="mr-2 h-4 w-4" />
-                      Approve
+                      {approveMutation.isPending ? 'Approving...' : 'Approve'}
                     </Button>
                     <Button 
                       onClick={() => handleReject(update.id)}
                       variant="destructive"
                       className="flex items-center"
+                      disabled={rejectMutation.isPending}
                     >
                       <X className="mr-2 h-4 w-4" />
-                      Reject
+                      {rejectMutation.isPending ? 'Rejecting...' : 'Reject'}
                     </Button>
                   </div>
                 )}
