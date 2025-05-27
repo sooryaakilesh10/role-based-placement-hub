@@ -7,7 +7,14 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "init-db": "node scripts/initDatabase.js"
+    "init-db": "node scripts/initDatabase.js",
+    "docker:setup": "chmod +x scripts/docker-setup.sh && ./scripts/docker-setup.sh",
+    "docker:dev": "chmod +x scripts/docker-dev.sh && ./scripts/docker-dev.sh",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:clean": "docker-compose down -v --remove-orphans && docker system prune -f"
   },
   "dependencies": {
     "express": "^4.18.2",

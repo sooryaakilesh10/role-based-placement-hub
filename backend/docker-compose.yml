@@ -1,0 +1,58 @@
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: placement_postgres
+    environment:
+      POSTGRES_DB: placement_platform
+      POSTGRES_USER: placement_user
+      POSTGRES_PASSWORD: placement_password123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U placement_user -d placement_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - placement_network
+
+  backend:
+    build: .
+    container_name: placement_backend
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=placement_platform
+      - DB_USER=placement_user
+      - DB_PASSWORD=placement_password123
+      - JWT_SECRET=your_super_secret_jwt_key_change_this_in_production_docker
+      - JWT_EXPIRES_IN=24h
+      - PORT=5000
+      - FRONTEND_URL=http://localhost:5173
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - placement_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  placement_network:
+    driver: bridge
